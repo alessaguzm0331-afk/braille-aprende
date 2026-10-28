@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#245a91">
+<title>Braille Aprende</title>
+<style>
+:root{--blue:#245a91;--pale:#e8f2ff;--gold:#fff0d8;--green:#e3f7e8}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f7f9fc;color:#203047}
+main{max-width:760px;margin:auto;padding:18px}h1{text-align:center;color:var(--blue);margin-bottom:4px}
+.sub{text-align:center;color:#526174;margin-top:0}.layout{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.panel{border-radius:18px;padding:14px;background:white;box-shadow:0 2px 10px #0000000d;text-align:center}
+.picture{background:var(--gold)}.word{background:var(--pale)}.house{font-size:100px;line-height:1.35}
+.slots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+.slot{height:46px;width:42px;border:2px solid #7da7d8;border-radius:8px;background:white;display:grid;place-items:center;font-size:25px;font-weight:700;color:var(--blue)}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:700;font-size:16px;background:var(--blue);color:white;margin:4px;cursor:pointer}
+button.secondary{background:#e7edf5;color:#24364b}button:disabled{opacity:.5}
+#status{min-height:26px;font-weight:600;margin:8px}#reader{width:100%;max-width:360px;margin:10px auto}#reader video{border-radius:12px}
+#qrout{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.qr{background:white;border:1px solid #d4deeb;border-radius:8px;padding:8px;min-width:80px}
+.note{font-size:13px;color:#526174;line-height:1.5}.full{margin-top:14px}
+@media(max-width:480px){main{padding:12px}.layout{gap:8px}.panel{padding:10px}.house{font-size:76px}.slot{width:35px;height:42px;font-size:22px}}
+</style>
+</head>
+<body>
+<main>
+<h1>💙 Braille Aprende</h1>
+<p class="sub">Observa la imagen y forma la palabra escaneando las tarjetas.</p>
+<div class="layout">
+<section class="panel picture"><h2>¿Qué ves?</h2><div class="house" id="picture">🏠</div><p id="pictureName">Una casa</p></section>
+<section class="panel word"><h2>Forma la palabra</h2><div class="slots" id="slots"></div><p id="count">0 letras identificadas</p></section>
+</div>
+<section class="panel full">
+<h2>Escanea tus tarjetas QR</h2>
+<p class="note">Permite el acceso a la cámara. Cada QR debe contener una letra, por ejemplo: BRAILLE-A o simplemente A.</p>
+<button id="start">Activar escáner QR</button><button class="secondary" id="stop">Detener cámara</button>
+<div id="reader"></div><div id="status" role="status">Preparada para comenzar.</div>
+<p class="note">Si aún no tienes tarjetas impresas, puedes generar códigos QR de prueba aquí abajo y abrirlos en otro dispositivo.</p>
+</section>
+<section class="panel full">
+<h2>Generar QR de letras</h2>
+<div id="qrout"></div>
+<p class="note">Imprime cada código y pégalo en la tarjeta que tenga la misma letra Braille en relieve. Se requiere internet para cargar la biblioteca QR y el escáner.</p>
+<button class="secondary" id="reset">Reiniciar palabra</button><button id="next">Siguiente palabra</button>
+</section>
+</main>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const activities=[
+ {word:"CASA",pic:"🏠",name:"Una casa"},
+ {word:"SOL",pic:"☀️",name:"El sol"},
+ {word:"MESA",pic:"🪑",name:"Una mesa"},
+ {word:"PATO",pic:"🦆",name:"Un pato"},
+ {word:"LUNA",pic:"🌙",name:"La luna"},
+ {word:"PELOTA",pic:"⚽",name:"Una pelota"}
+];
+let idx=0,letters=[],scanner=null,scanning=false,lastValue="",lastAt=0;
+const $=id=>document.getElementById(id);
+function render(){const a=activities[idx];$("picture").textContent=a.pic;$("pictureName").textContent=a.name;
+$("slots").innerHTML="";for(let i=0;i<a.word.length;i++){let d=document.createElement("div");d.className="slot";d.textContent=letters[i]||"";$("slots").appendChild(d)}
+$("count").textContent=`${letters.length} de ${a.word.length} letras identificadas`;
+if(letters.length===a.word.length && letters.join("")===a.word){$("status").textContent="¡Excelente trabajo! ¡Formaste "+a.word+"! 🎉";speak("¡Excelente trabajo! "+a.word)}}
+function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))}}
+function normalize(t){t=(t||"").trim().toUpperCase();if(t.startsWith("BRAILLE-"))t=t.slice(8);if(t.startsWith("LETRA:"))t=t.slice(6);return t.trim()}
+function accept(decoded){let v=normalize(decoded);if(!/^[A-ZÑ]$/.test(v)){ $("status").textContent="Ese QR no contiene una sola letra. Prueba con otro.";return}
+if(letters.length>=activities[idx].word.length){$("status").textContent="Ya completaste los casilleros. Reinicia o pasa a otra palabra.";return}
+letters.push(v);render();if(letters.length<activities[idx].word.length){$("status").textContent="Letra "+v+" registrada. Busca la siguiente letra.";speak(v)}else if(letters.join("")!==activities[idx].word){$("status").textContent="Has llenado los casilleros, pero la palabra no coincide. Reinicia e inténtalo otra vez.";speak("Inténtalo otra vez")}}
+function buildQR(){let out=$("qrout");out.innerHTML="";"ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("").forEach(ch=>{let box=document.createElement("div");box.className="qr";let label=document.createElement("b");label.textContent=ch;let q=document.createElement("div");q.style.margin="6px auto";box.append(label,q);out.appendChild(box);if(window.QRCode){new QRCode(q,{text:ch,width:76,height:76})}else{q.textContent="QR requiere internet"}})}
+$("start").onclick=async()=>{if(!window.Html5Qrcode){$("status").textContent="No se pudo cargar el lector QR. Comprueba tu conexión a internet y vuelve a cargar la página.";return}
+try{if(!scanner)scanner=new Html5Qrcode("reader");await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},decoded=>{let now=Date.now();if(decoded===lastValue&&now-lastAt<1800)return;lastValue=decoded;lastAt=now;accept(decoded)},()=>{});scanning=true;$("status").textContent="Cámara activa. Coloca un QR dentro del recuadro."}catch(e){$("status").textContent="No se pudo abrir la cámara. Revisa los permisos del navegador y asegúrate de usar HTTPS."}};
+$("stop").onclick=async()=>{if(scanner&&scanning){try{await scanner.stop()}catch(e){}scanning=false;$("status").textContent="Cámara detenida."}};
+$("reset").onclick=()=>{letters=[];render();$("status").textContent="Palabra reiniciada."};
+$("next").onclick=()=>{idx=(idx+1)%activities.length;letters=[];render();$("status").textContent="Nueva palabra. Observa la imagen.";speak("Observa la imagen y forma la palabra")};
+render();buildQR();
+</script>
+</body>
+</html>
